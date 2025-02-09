@@ -21,7 +21,6 @@
   .images {
     height: 150px;
     margin-right: 5px;
-    /* 加點邊距 */
   }
 </style>
 
@@ -34,7 +33,10 @@
 
   <script type="text/babel">
     function App() {
+      // 狀態來保存當前選擇的產品
       const [tempProduct,setTempProduct] = React.useState(null);
+
+      // 狀態來保存產品列表
       const [products,setProducts] = React.useState([
         {
           category: "甜甜圈",
@@ -153,6 +155,7 @@
       );
     }
 
+    // 將 App 組件渲染到 root 元素中
     ReactDOM.render(<App />,document.getElementById('root'));
   </script>
 </body>
