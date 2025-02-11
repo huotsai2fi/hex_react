@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import axios from 'axios'
+import { Modal } from 'bootstrap' // import bootstrap JS !!
 
 const { VITE_API_URL, VITE_API_PATH } = import.meta.env
 const request = axios.create({
@@ -15,7 +16,8 @@ function App() {
   const [loginErrorMessage, setLoginErrorMessage] = useState(null);
   const [isAuth, setIsAuth] = useState(false);
   const [products, setProducts] = useState(null);
-  const [tempProduct, setTempProduct] = useState(null);
+  const productModalRef = useRef(null);
+
 
   // Check if the user is authenticated already
   useEffect(() => {
@@ -33,6 +35,9 @@ function App() {
   useEffect(() => {
     if (isAuth) {
       getProducts();
+      productModalRef.current = new Modal('#productModal', {
+        keyboard: false // disable keyboard esc close
+      });
     }
   }, [isAuth]);
 
@@ -83,13 +88,17 @@ function App() {
     });
   };
 
+  const handleNewProductBtnClick = () => {
+    productModalRef.current.show();
+  };
+
   return (
     <>
       {isAuth ? (
         <div>
           <div className="container">
             <div className="text-end mt-4">
-              <button className="btn btn-primary">建立新的產品</button>
+              <button className="btn btn-primary" onClick={handleNewProductBtnClick}>建立新的產品</button>
             </div>
             <table className="table mt-4">
               <thead>
@@ -103,26 +112,36 @@ function App() {
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <td></td>
-                  <td></td>
-                  <td className="text-end"></td>
-                  <td className="text-end"></td>
-                  <td>
-                    <span className="text-success">啟用</span>
-                    <span>未啟用</span>
-                  </td>
-                  <td>
-                    <div className="btn-group">
-                      <button type="button" className="btn btn-outline-primary btn-sm">
-                        編輯
-                      </button>
-                      <button type="button" className="btn btn-outline-danger btn-sm">
-                        刪除
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+                {products ? products.length > 0 ? (
+                  products.map((item) => (
+                    <tr key={item.id}>
+                      <td>{item.category}</td>
+                      <td>{item.title}</td>
+                      <td className="text-end">{item.origin_price}</td>
+                      <td className="text-end">{item.price}</td>
+                      <td>
+                        {item.is_enabled ? <span className="text-success">啟用</span> : <span>未啟用</span>}
+                      </td>
+                      <td>
+                        <div className="btn-group">
+                          <button type="button" className="btn btn-outline-primary btn-sm">
+                            編輯
+                          </button>
+                          <button type="button" className="btn btn-outline-danger btn-sm">
+                            刪除
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="6">尚無產品資料</td>
+                  </tr>
+                ) : (
+                  <tr>
+                    <td colSpan="6">商品載入中...</td>
+                  </tr>)}
               </tbody>
             </table>
           </div>
@@ -175,6 +194,153 @@ function App() {
           <p className="mt-5 mb-3 text-muted">&copy; 2024~∞ - 六角學院</p>
         </div>
       )}
+      <div
+        id="productModal"
+        className="modal fade"
+        tabIndex="-1"
+        aria-labelledby="productModalLabel"
+        aria-hidden="true"
+      >
+        <div className="modal-dialog modal-xl">
+          <div className="modal-content border-0">
+            <div className="modal-header bg-dark text-white">
+              <h5 id="productModalLabel" className="modal-title">
+                <span>新增產品</span>
+              </h5>
+              <button
+                type="button"
+                className="btn-close"
+                data-bs-dismiss="modal"
+                aria-label="Close"
+              ></button>
+            </div>
+            <div className="modal-body">
+              <div className="row">
+                <div className="col-sm-4">
+                  <div className="mb-2">
+                    <div className="mb-3">
+                      <label htmlFor="imageUrl" className="form-label">
+                        輸入圖片網址
+                      </label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="請輸入圖片連結"
+                      />
+                    </div>
+                    <img className="img-fluid" src="" alt="" />
+                  </div>
+                  <div>
+                    <button className="btn btn-outline-primary btn-sm d-block w-100">
+                      新增圖片
+                    </button>
+                  </div>
+                  <div>
+                    <button className="btn btn-outline-danger btn-sm d-block w-100">
+                      刪除圖片
+                    </button>
+                  </div>
+                </div>
+                <div className="col-sm-8">
+                  <div className="mb-3">
+                    <label htmlFor="title" className="form-label">標題</label>
+                    <input
+                      id="title"
+                      type="text"
+                      className="form-control"
+                      placeholder="請輸入標題"
+                    />
+                  </div>
+
+                  <div className="row">
+                    <div className="mb-3 col-md-6">
+                      <label htmlFor="category" className="form-label">分類</label>
+                      <input
+                        id="category"
+                        type="text"
+                        className="form-control"
+                        placeholder="請輸入分類"
+                      />
+                    </div>
+                    <div className="mb-3 col-md-6">
+                      <label htmlFor="unit" className="form-label">單位</label>
+                      <input
+                        id="unit"
+                        type="text"
+                        className="form-control"
+                        placeholder="請輸入單位"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="row">
+                    <div className="mb-3 col-md-6">
+                      <label htmlFor="origin_price" className="form-label">原價</label>
+                      <input
+                        id="origin_price"
+                        type="number"
+                        min="0"
+                        className="form-control"
+                        placeholder="請輸入原價"
+                      />
+                    </div>
+                    <div className="mb-3 col-md-6">
+                      <label htmlFor="price" className="form-label">售價</label>
+                      <input
+                        id="price"
+                        type="number"
+                        min="0"
+                        className="form-control"
+                        placeholder="請輸入售價"
+                      />
+                    </div>
+                  </div>
+                  <hr />
+
+                  <div className="mb-3">
+                    <label htmlFor="description" className="form-label">產品描述</label>
+                    <textarea
+                      id="description"
+                      className="form-control"
+                      placeholder="請輸入產品描述"
+                    ></textarea>
+                  </div>
+                  <div className="mb-3">
+                    <label htmlFor="content" className="form-label">說明內容</label>
+                    <textarea
+                      id="content"
+                      className="form-control"
+                      placeholder="請輸入說明內容"
+                    ></textarea>
+                  </div>
+                  <div className="mb-3">
+                    <div className="form-check">
+                      <input
+                        id="is_enabled"
+                        className="form-check-input"
+                        type="checkbox"
+                      />
+                      <label className="form-check-label" htmlFor="is_enabled">
+                        是否啟用
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="btn btn-outline-secondary"
+                data-bs-dismiss="modal"
+              >
+                取消
+              </button>
+              <button type="button" className="btn btn-primary">確認</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </>
   );
 }
