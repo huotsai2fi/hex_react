@@ -55,7 +55,7 @@ function App() {
       if (response.status === 200) {
         const { token, expired } = response.data;
         // save token to cookie
-        document.cookie = `hexToken=${token}; expires=${new Date(expired)}; path=/`;
+        document.cookie = `hexToken=${token}; expires=${expired}; path=/`;
         setIsAuth(true);
       } else {
         const { message } = response.data;
