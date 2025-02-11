@@ -17,32 +17,44 @@ function App() {
   const [products, setProducts] = useState(null);
   const [tempProduct, setTempProduct] = useState(null);
 
+  // Check if the user is authenticated already
+  useEffect(() => {
+    const token = document.cookie.replace(
+      /(?:(?:^|.*;\s*)hexToken\s*=\s*([^;]*).*$)|^.*$/,
+      "$1"
+    );
+    if (token) {
+      request.defaults.headers.common["Authorization"] = token;
+      checkAdmin();
+    }
+  }, []);
+
+  // Get products when the user is authenticated
   useEffect(() => {
     if (isAuth) {
-      (async () => {
-        try {
-          // get cookie and set to axios header
-          const token = document.cookie.replace(
-            /(?:(?:^|.*;\s*)hexToken\s*=\s*([^;]*).*$)|^.*$/,
-            "$1"
-          );
-          request.defaults.headers.common["Authorization"] = token;
-          const userCheckResult = await request.post(`/api/user/check`);
-          if (userCheckResult.status !== 200) {
-            setIsAuth(false);
-            return;
-          }
-          const response = await request.get(`/api/${VITE_API_PATH}/admin/products`);
-          if (response.status === 200) {
-            const { products } = response.data;
-            setProducts(products);
-          }
-        } catch (error) {
-          console.error(error);
-        }
-      })();
+      getProducts();
     }
   }, [isAuth]);
+
+  const getProducts = async () => {
+    try {
+      const response = await request.get(`/api/${VITE_API_PATH}/admin/products`);
+      const { products } = response.data;
+      setProducts(products);
+    }catch (error) {
+      console.error(error);
+    }
+  };
+
+  const checkAdmin = async () => {
+    try {
+      await request.post(`/api/user/check`);
+      setIsAuth(true);
+    } catch (error) {
+      setIsAuth(false);
+      console.log(error);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -52,15 +64,9 @@ function App() {
         username,
         password,
       });
-      if (response.status === 200) {
-        const { token, expired } = response.data;
-        // save token to cookie
-        document.cookie = `hexToken=${token}; expires=${expired}; path=/`;
-        setIsAuth(true);
-      } else {
-        const { message } = response.data;
-        setLoginErrorMessage(message);
-      }
+      const { token, expired } = response.data;
+      document.cookie = `hexToken=${token}; expires=${new Date(expired)};`;
+      setIsAuth(true);
     } catch (error) {
       const { message } = error.response.data;
       setLoginErrorMessage(message);
