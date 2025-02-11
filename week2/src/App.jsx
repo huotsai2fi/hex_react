@@ -1,22 +1,74 @@
 import React, { useState, useEffect } from 'react'
+import axios from 'axios'
+
+const { VITE_API_URL, VITE_API_PATH } = import.meta.env
+const request = axios.create({
+  baseURL: VITE_API_URL,
+})
 
 
 function App() {
-  const [formData, setFormData] = React.useState({
+  const [formData, setFormData] = useState({
     username: "",
     password: "",
   });
+  const [loginErrorMessage, setLoginErrorMessage] = useState(null);
+  const [isAuth, setIsAuth] = useState(false);
+  const [products, setProducts] = useState(null);
+  const [tempProduct, setTempProduct] = useState(null);
 
-  const [isAuth, setIsAuth] = React.useState(false);
-  const [products, setProducts] = React.useState([]);
-  const [tempProduct, setTempProduct] = React.useState(null);
+  useEffect(() => {
+    if (isAuth) {
+      (async () => {
+        try {
+          // get cookie and set to axios header
+          const token = document.cookie.replace(
+            /(?:(?:^|.*;\s*)hexToken\s*=\s*([^;]*).*$)|^.*$/,
+            "$1"
+          );
+          request.defaults.headers.common["Authorization"] = token;
+          const userCheckResult = await request.post(`/api/user/check`);
+          if (userCheckResult.status !== 200) {
+            setIsAuth(false);
+            return;
+          }
+          const response = await request.get(`/api/${VITE_API_PATH}/admin/products`);
+          if (response.status === 200) {
+            const { products } = response.data;
+            setProducts(products);
+          }
+        } catch (error) {
+          console.error(error);
+        }
+      })();
+    }
+  }, [isAuth]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const { username, password } = formData;
+    try {
+      const response = await request.post(`/admin/signin`, {
+        username,
+        password,
+      });
+      if (response.status === 200) {
+        const { token, expired } = response.data;
+        // save token to cookie
+        document.cookie = `hexToken=${token}; expires=${expired}; path=/`;
+        setIsAuth(true);
+      } else {
+        const { message } = response.data;
+        setLoginErrorMessage(message);
+      }
+    } catch (error) {
+      const { message } = error.response.data;
+      setLoginErrorMessage(message);
+    }
   };
 
   const handleInputChange = (e) => {
+    setLoginErrorMessage(null);
     const { id, value } = e.target;
     setFormData({
       ...formData,
@@ -42,7 +94,7 @@ function App() {
                   </tr>
                 </thead>
                 <tbody>
-                  {products && products.length > 0 ? (
+                  {products ? products.length > 0 ? (
                     products.map((item) => (
                       <tr key={item.id}>
                         <td>{item.title}</td>
@@ -63,7 +115,10 @@ function App() {
                     <tr>
                       <td colSpan="5">尚無產品資料</td>
                     </tr>
-                  )}
+                  ) : (
+                    <tr>
+                      <td colSpan="5">商品載入中...</td>
+                    </tr>)}
                 </tbody>
               </table>
             </div>
@@ -84,7 +139,7 @@ function App() {
                       </span>
                     </h5>
                     <p className="card-text">
-                      商品描述：{tempProduct.category}
+                      商品描述：{tempProduct.description}
                     </p>
                     <p className="card-text">商品內容：{tempProduct.content}</p>
                     <div className="d-flex">
@@ -143,6 +198,11 @@ function App() {
                   />
                   <label htmlFor="password">Password</label>
                 </div>
+                {loginErrorMessage && (
+                  <div className="text-danger">
+                    {loginErrorMessage}
+                  </div>
+                )}
                 <button
                   className="btn btn-lg btn-primary w-100 mt-3"
                   type="submit"
