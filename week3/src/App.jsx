@@ -1,12 +1,13 @@
+//TODO: getProduct loading status
+
 import React, { useState, useEffect, useRef } from 'react'
 import axios from 'axios'
-import { Modal } from 'bootstrap' // import bootstrap JS !!
+import { Modal } from 'bootstrap' // 這裡也要引入
 
 const { VITE_API_URL, VITE_API_PATH } = import.meta.env
 const request = axios.create({
   baseURL: VITE_API_URL,
 })
-
 
 function App() {
   const [formData, setFormData] = useState({
@@ -17,7 +18,51 @@ function App() {
   const [isAuth, setIsAuth] = useState(false);
   const [products, setProducts] = useState(null);
   const productModalRef = useRef(null);
-
+  const newProduct = async (data) => {
+    data = {
+      ...data,
+      is_enabled: data.is_enabled ? 1 : 0,
+    };
+    try {
+      await request.post(`/api/${VITE_API_PATH}/admin/product`, { data });
+      getProducts();
+    } catch (error) {
+      console.error(error);
+    }
+  };
+  const updateProduct = async (id, data) => {
+    try {
+      await request.put(`/api/${VITE_API_PATH}/admin/product/${id}`, { data });
+      getProducts();
+    } catch (error) {
+      console.error(error);
+    }
+  };
+  const ModalType = {
+    NEW: {
+      title: '新增產品',
+      onConfirm: (data) => newProduct(data),
+    },
+    UPDATE: {
+      title: '編輯產品',
+      onConfirm: (id, data) => updateProduct(id, data),
+    },
+  };
+  const [modalType, setModalType] = useState(ModalType.NEW);
+  const initialProduct = {
+    title: '',
+    imageUrl: '',
+    imagesUrl: [],
+    category: '',
+    unit: '',
+    origin_price: 0,
+    price: 0,
+    description: '',
+    content: '',
+    is_enabled: false,
+  }
+  const [currentProduct, setCurrentProduct] = useState(initialProduct);
+  const [newImageUrl, setNewImageUrl] = useState('');
 
   // Check if the user is authenticated already
   useEffect(() => {
@@ -35,8 +80,23 @@ function App() {
   useEffect(() => {
     if (isAuth) {
       getProducts();
-      productModalRef.current = new Modal('#productModal', {
+      const modalElement = document.getElementById('productModal');
+      productModalRef.current = new Modal(modalElement, {
         keyboard: false // disable keyboard esc close
+      });
+
+      modalElement.addEventListener('hidden.bs.modal', () => {
+        setCurrentProduct(initialProduct);
+      });
+    }
+
+    return () => {
+      if (productModalRef.current) {
+        productModalRef.current.hide();
+      }
+      const modalElement = document.getElementById('productModal');
+      modalElement.removeEventListener('hidden.bs.modal', () => {
+        setCurrentProduct(initialProduct);
       });
     }
   }, [isAuth]);
@@ -57,7 +117,6 @@ function App() {
       setIsAuth(true);
     } catch (error) {
       setIsAuth(false);
-      console.log(error);
     }
   };
 
@@ -79,7 +138,7 @@ function App() {
     }
   };
 
-  const handleInputChange = (e) => {
+  const handleLoginInputChange = (e) => {
     setLoginErrorMessage(null);
     const { id, value } = e.target;
     setFormData({
@@ -88,8 +147,73 @@ function App() {
     });
   };
 
-  const handleNewProductBtnClick = () => {
+  const handleModalInputChange = (e) => {
+    const { id, value, type, checked } = e.target;
+    const newValue = type === 'checkbox' ? checked : value;
+    setCurrentProduct({
+      ...currentProduct,
+      [id]: newValue,
+    });
+  };
+
+  const deleteProduct = async (id) => {
+    try {
+      await request.delete(`/api/${VITE_API_PATH}/admin/product/${id}`);
+      getProducts();
+    }
+    catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleNewProductClick = () => {
+    setModalType(ModalType.NEW);
     productModalRef.current.show();
+  };
+
+  const handleUpdateProductClick = (item) => {
+    setModalType(ModalType.UPDATE);
+    setCurrentProduct(item);
+    productModalRef.current.show();
+  };
+
+  const handleNewImageClick = () => {
+    if (newImageUrl === '') return;
+    if (!currentProduct.imagesUrl) {
+      setCurrentProduct({
+        ...currentProduct,
+        imagesUrl: [newImageUrl],
+      });
+    }else{
+      setCurrentProduct({
+        ...currentProduct,
+        imagesUrl: [...currentProduct.imagesUrl, newImageUrl],
+      });
+    }
+    setNewImageUrl('');
+  };
+
+  const handleDeleteImageClick = (index) => {
+    setCurrentProduct({
+      ...currentProduct,
+      imagesUrl: currentProduct.imagesUrl.filter((_, i) => i !== index),
+    });
+  };
+
+  const handleDeleteProductClick = (item) => {
+    const { id, title } = item;
+    if (!confirm(`確認刪除 ${title} ?`)) return;
+    deleteProduct(id);
+  };
+
+  const handleConfirmClick = (data) => {
+    const { id } = data;
+    if (id) {
+      modalType.onConfirm(id, data);
+    } else {
+      modalType.onConfirm(data);
+    }
+    productModalRef.current.hide();
   };
 
   return (
@@ -98,7 +222,7 @@ function App() {
         <div>
           <div className="container">
             <div className="text-end mt-4">
-              <button className="btn btn-primary" onClick={handleNewProductBtnClick}>建立新的產品</button>
+              <button className="btn btn-primary" onClick={handleNewProductClick}>建立新的產品</button>
             </div>
             <table className="table mt-4">
               <thead>
@@ -120,14 +244,14 @@ function App() {
                       <td className="text-end">{item.origin_price}</td>
                       <td className="text-end">{item.price}</td>
                       <td>
-                        {item.is_enabled ? <span className="text-success">啟用</span> : <span>未啟用</span>}
+                        {item.is_enabled ? <span className="text-success">啟用</span> : <span className="text-gray">未啟用</span>}
                       </td>
                       <td>
                         <div className="btn-group">
-                          <button type="button" className="btn btn-outline-primary btn-sm">
+                          <button type="button" className="btn btn-outline-primary btn-sm" onClick={() => handleUpdateProductClick(item)}>
                             編輯
                           </button>
-                          <button type="button" className="btn btn-outline-danger btn-sm">
+                          <button type="button" className="btn btn-outline-danger btn-sm" onClick={() => handleDeleteProductClick(item)}>
                             刪除
                           </button>
                         </div>
@@ -159,7 +283,7 @@ function App() {
                     id="username"
                     placeholder="name@example.com"
                     value={formData.username}
-                    onChange={handleInputChange}
+                    onChange={handleLoginInputChange}
                     required
                     autoFocus
                   />
@@ -172,7 +296,7 @@ function App() {
                     id="password"
                     placeholder="Password"
                     value={formData.password}
-                    onChange={handleInputChange}
+                    onChange={handleLoginInputChange}
                     required
                   />
                   <label htmlFor="password">Password</label>
@@ -205,7 +329,7 @@ function App() {
           <div className="modal-content border-0">
             <div className="modal-header bg-dark text-white">
               <h5 id="productModalLabel" className="modal-title">
-                <span>新增產品</span>
+                <span>{modalType.title}</span>
               </h5>
               <button
                 type="button"
@@ -220,25 +344,18 @@ function App() {
                   <div className="mb-2">
                     <div className="mb-3">
                       <label htmlFor="imageUrl" className="form-label">
-                        輸入圖片網址
+                        主圖片網址
                       </label>
                       <input
+                        id="imageUrl"
+                        value={currentProduct.imageUrl}
                         type="text"
                         className="form-control"
                         placeholder="請輸入圖片連結"
+                        onChange={handleModalInputChange}
                       />
                     </div>
-                    <img className="img-fluid" src="" alt="" />
-                  </div>
-                  <div>
-                    <button className="btn btn-outline-primary btn-sm d-block w-100">
-                      新增圖片
-                    </button>
-                  </div>
-                  <div>
-                    <button className="btn btn-outline-danger btn-sm d-block w-100">
-                      刪除圖片
-                    </button>
+                    {currentProduct.imageUrl.length > 0 && <img className="img-fluid" src={currentProduct.imageUrl} alt="image" />}
                   </div>
                 </div>
                 <div className="col-sm-8">
@@ -246,9 +363,11 @@ function App() {
                     <label htmlFor="title" className="form-label">標題</label>
                     <input
                       id="title"
+                      value={currentProduct.title}
                       type="text"
                       className="form-control"
                       placeholder="請輸入標題"
+                      onChange={handleModalInputChange}
                     />
                   </div>
 
@@ -257,18 +376,22 @@ function App() {
                       <label htmlFor="category" className="form-label">分類</label>
                       <input
                         id="category"
+                        value={currentProduct.category}
                         type="text"
                         className="form-control"
                         placeholder="請輸入分類"
+                        onChange={handleModalInputChange}
                       />
                     </div>
                     <div className="mb-3 col-md-6">
                       <label htmlFor="unit" className="form-label">單位</label>
                       <input
                         id="unit"
+                        value={currentProduct.unit}
                         type="text"
                         className="form-control"
                         placeholder="請輸入單位"
+                        onChange={handleModalInputChange}
                       />
                     </div>
                   </div>
@@ -278,47 +401,56 @@ function App() {
                       <label htmlFor="origin_price" className="form-label">原價</label>
                       <input
                         id="origin_price"
+                        value={currentProduct.origin_price}
                         type="number"
                         min="0"
                         className="form-control"
                         placeholder="請輸入原價"
+                        onChange={handleModalInputChange}
                       />
                     </div>
                     <div className="mb-3 col-md-6">
                       <label htmlFor="price" className="form-label">售價</label>
                       <input
                         id="price"
+                        value={currentProduct.price}
                         type="number"
                         min="0"
                         className="form-control"
                         placeholder="請輸入售價"
+                        onChange={handleModalInputChange}
                       />
                     </div>
                   </div>
                   <hr />
-
                   <div className="mb-3">
                     <label htmlFor="description" className="form-label">產品描述</label>
                     <textarea
                       id="description"
+                      value={currentProduct.description}
                       className="form-control"
                       placeholder="請輸入產品描述"
+                      onChange={handleModalInputChange}
                     ></textarea>
                   </div>
                   <div className="mb-3">
                     <label htmlFor="content" className="form-label">說明內容</label>
                     <textarea
                       id="content"
+                      value={currentProduct.content}
                       className="form-control"
                       placeholder="請輸入說明內容"
+                      onChange={handleModalInputChange}
                     ></textarea>
                   </div>
                   <div className="mb-3">
                     <div className="form-check">
                       <input
                         id="is_enabled"
+                        checked={currentProduct.is_enabled}
                         className="form-check-input"
                         type="checkbox"
+                        onChange={handleModalInputChange}
                       />
                       <label className="form-check-label" htmlFor="is_enabled">
                         是否啟用
@@ -327,6 +459,35 @@ function App() {
                   </div>
                 </div>
               </div>
+              <hr />
+              <div className="mb-3">
+                其他圖片
+              </div>
+              <div className='mb-3'>
+                <input
+                  id="newImageUrl"
+                  value={newImageUrl}
+                  type="text"
+                  className="form-control"
+                  placeholder="請輸入圖片連結"
+                  onChange={(e) => setNewImageUrl(e.target.value)}
+                />
+                <button className="btn btn-outline-primary btn-sm mt-2 w-100" onClick={handleNewImageClick}>
+                  新增圖片
+                </button>
+              </div>
+              {currentProduct.imagesUrl?.length > 0 && (
+                <div className="row">
+                  {currentProduct.imagesUrl.map((url, index) => (
+                    <div key={index} className="col-6">
+                      <img src={url} alt="image" height={100} />
+                      <button className="btn btn-outline-danger btn-sm my-2 w-100" onClick={() => handleDeleteImageClick(index)}>
+                        刪除圖片
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="modal-footer">
               <button
@@ -336,7 +497,7 @@ function App() {
               >
                 取消
               </button>
-              <button type="button" className="btn btn-primary">確認</button>
+              <button type="button" className="btn btn-primary" onClick={() => handleConfirmClick(currentProduct)}>確認</button>
             </div>
           </div>
         </div>
