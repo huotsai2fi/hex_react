@@ -25,17 +25,16 @@ function App() {
     };
     try {
       await request.post(`/api/${VITE_API_PATH}/admin/product`, { data });
-      getProducts();
     } catch (error) {
-      console.error(error);
+      throw error;
     }
   };
-  const updateProduct = async (id, data) => {
+  const updateProduct = async (data) => {
+    const { id, ...restData } = data;
     try {
-      await request.put(`/api/${VITE_API_PATH}/admin/product/${id}`, { data });
-      getProducts();
+      await request.put(`/api/${VITE_API_PATH}/admin/product/${id}`, { data: restData });
     } catch (error) {
-      console.error(error);
+      throw error;
     }
   };
   const ModalType = {
@@ -45,7 +44,7 @@ function App() {
     },
     UPDATE: {
       title: '編輯產品',
-      onConfirm: (id, data) => updateProduct(id, data),
+      onConfirm: (data) => updateProduct(data),
     },
   };
   const [modalType, setModalType] = useState(ModalType.NEW);
@@ -63,6 +62,8 @@ function App() {
   }
   const [currentProduct, setCurrentProduct] = useState(initialProduct);
   const [newImageUrl, setNewImageUrl] = useState('');
+  const [isPageLoading, setIsPageLoading] = useState(true);
+  const [isProductLoading, setIsProductLoading] = useState(true);
 
   // Check if the user is authenticated already
   useEffect(() => {
@@ -73,6 +74,8 @@ function App() {
     if (token) {
       request.defaults.headers.common["Authorization"] = token;
       checkAdmin();
+    }else{
+      setIsPageLoading(false);
     }
   }, []);
 
@@ -102,10 +105,12 @@ function App() {
   }, [isAuth]);
 
   const getProducts = async () => {
+    setIsProductLoading(true);
     try {
       const response = await request.get(`/api/${VITE_API_PATH}/admin/products`);
       const { products } = response.data;
       setProducts(products);
+      setIsProductLoading(false);
     } catch (error) {
       console.error(error);
     }
@@ -117,6 +122,9 @@ function App() {
       setIsAuth(true);
     } catch (error) {
       setIsAuth(false);
+      console.error(error);
+    }finally{
+      setIsPageLoading(false);
     }
   };
 
@@ -149,7 +157,7 @@ function App() {
 
   const handleModalInputChange = (e) => {
     const { id, value, type, checked } = e.target;
-    const newValue = type === 'checkbox' ? checked : value;
+    const newValue = type === 'checkbox' ? checked : type === 'number' ? Number(value) : value;
     setCurrentProduct({
       ...currentProduct,
       [id]: newValue,
@@ -184,7 +192,7 @@ function App() {
         ...currentProduct,
         imagesUrl: [newImageUrl],
       });
-    }else{
+    } else {
       setCurrentProduct({
         ...currentProduct,
         imagesUrl: [...currentProduct.imagesUrl, newImageUrl],
@@ -206,19 +214,19 @@ function App() {
     deleteProduct(id);
   };
 
-  const handleConfirmClick = (data) => {
-    const { id } = data;
-    if (id) {
-      modalType.onConfirm(id, data);
-    } else {
-      modalType.onConfirm(data);
+  const handleConfirmClick = async (data) => {
+    try {
+      await modalType.onConfirm(data);
+      getProducts();
+      productModalRef.current.hide();
+    } catch (error) {
+      alert(error.response.data.message);
     }
-    productModalRef.current.hide();
   };
 
   return (
     <>
-      {isAuth ? (
+      {isPageLoading ? 'Loading...' : (isAuth ? (
         <div>
           <div className="container">
             <div className="text-end mt-4">
@@ -236,36 +244,37 @@ function App() {
                 </tr>
               </thead>
               <tbody>
-                {products ? products.length > 0 ? (
-                  products.map((item) => (
-                    <tr key={item.id}>
-                      <td>{item.category}</td>
-                      <td>{item.title}</td>
-                      <td className="text-end">{item.origin_price}</td>
-                      <td className="text-end">{item.price}</td>
-                      <td>
-                        {item.is_enabled ? <span className="text-success">啟用</span> : <span className="text-gray">未啟用</span>}
-                      </td>
-                      <td>
-                        <div className="btn-group">
-                          <button type="button" className="btn btn-outline-primary btn-sm" onClick={() => handleUpdateProductClick(item)}>
-                            編輯
-                          </button>
-                          <button type="button" className="btn btn-outline-danger btn-sm" onClick={() => handleDeleteProductClick(item)}>
-                            刪除
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="6">尚無產品資料</td>
-                  </tr>
-                ) : (
-                  <tr>
+                {isProductLoading ?
+                  (<tr>
                     <td colSpan="6">商品載入中...</td>
-                  </tr>)}
+                  </tr>) :
+                  (products.length > 0 ? (
+                    products.map((item) => (
+                      <tr key={item.id}>
+                        <td>{item.category}</td>
+                        <td>{item.title}</td>
+                        <td className="text-end">{item.origin_price}</td>
+                        <td className="text-end">{item.price}</td>
+                        <td>
+                          {item.is_enabled ? <span className="text-success">啟用</span> : <span className="text-gray">未啟用</span>}
+                        </td>
+                        <td>
+                          <div className="btn-group">
+                            <button type="button" className="btn btn-outline-primary btn-sm" onClick={() => handleUpdateProductClick(item)}>
+                              編輯
+                            </button>
+                            <button type="button" className="btn btn-outline-danger btn-sm" onClick={() => handleDeleteProductClick(item)}>
+                              刪除
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="6">尚無產品資料</td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>
@@ -317,7 +326,7 @@ function App() {
           </div>
           <p className="mt-5 mb-3 text-muted">&copy; 2024~∞ - 六角學院</p>
         </div>
-      )}
+      ))}
       <div
         id="productModal"
         className="modal fade"
