@@ -1,5 +1,3 @@
-//TODO: getProduct loading status
-
 import React, { useState, useEffect, useRef } from 'react'
 import axios from 'axios'
 import { Modal } from 'bootstrap' // 這裡也要引入
@@ -65,6 +63,8 @@ function App() {
   const [isPageLoading, setIsPageLoading] = useState(true);
   const [isProductLoading, setIsProductLoading] = useState(true);
 
+
+
   // Check if the user is authenticated already
   useEffect(() => {
     const token = document.cookie.replace(
@@ -104,18 +104,6 @@ function App() {
     }
   }, [isAuth]);
 
-  const getProducts = async () => {
-    setIsProductLoading(true);
-    try {
-      const response = await request.get(`/api/${VITE_API_PATH}/admin/products`);
-      const { products } = response.data;
-      setProducts(products);
-      setIsProductLoading(false);
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
   const checkAdmin = async () => {
     try {
       await request.post(`/api/user/check`);
@@ -128,7 +116,19 @@ function App() {
     }
   };
 
-  const handleSubmit = async (e) => {
+  const getProducts = async () => {
+    setIsProductLoading(true);
+    try {
+      const response = await request.get(`/api/${VITE_API_PATH}/admin/products`);
+      const { products } = response.data;
+      setProducts(products);
+      setIsProductLoading(false);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleLoginSubmit = async (e) => {
     e.preventDefault();
     const { username, password } = formData;
     try {
@@ -284,7 +284,7 @@ function App() {
           <div className="row justify-content-center">
             <h1 className="h3 mb-3 font-weight-normal">請先登入</h1>
             <div className="col-8">
-              <form id="form" className="form-signin" onSubmit={handleSubmit}>
+              <form id="form" className="form-signin" onSubmit={handleLoginSubmit}>
                 <div className="form-floating mb-3">
                   <input
                     type="email"
