@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Modal } from 'bootstrap'; // 這裡也要引入
 import ProductModal from './ProductModal';
+import Pagination from './Pagination';
 
 const { VITE_API_URL, VITE_API_PATH } = import.meta.env;
 const request = axios.create({
@@ -25,7 +26,7 @@ function App() {
     try {
       await request.post(`/api/${VITE_API_PATH}/admin/product`, { data });
     } catch (error) {
-      throw error;
+      console.error(error);
     }
   };
   const updateProduct = async (data) => {
@@ -35,7 +36,7 @@ function App() {
         data: restData,
       });
     } catch (error) {
-      throw error;
+      console.error(error);
     }
   };
   const ModalType = {
@@ -62,7 +63,8 @@ function App() {
     is_enabled: false,
   };
   const [currentProduct, setCurrentProduct] = useState(initialProduct);
-  // const [newImageUrl, setNewImageUrl] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(null);
   const [isPageLoading, setIsPageLoading] = useState(true);
   const [isProductLoading, setIsProductLoading] = useState(true);
 
@@ -105,6 +107,12 @@ function App() {
     };
   }, [isAuth]);
 
+  useEffect(() => {
+    if (isAuth) {
+      getProducts();
+    }
+  }, [currentPage]);
+
   const checkAdmin = async () => {
     try {
       await request.post(`/api/user/check`);
@@ -121,10 +129,11 @@ function App() {
     setIsProductLoading(true);
     try {
       const response = await request.get(
-        `/api/${VITE_API_PATH}/admin/products`
+        `/api/${VITE_API_PATH}/admin/products?page=${currentPage}`
       );
-      const { products } = response.data;
+      const { products, pagination } = response.data;
       setProducts(products);
+      setTotalPages(pagination.total_pages);
       setIsProductLoading(false);
     } catch (error) {
       console.error(error);
@@ -226,39 +235,46 @@ function App() {
                     <td colSpan="6">商品載入中...</td>
                   </tr>
                 ) : products.length > 0 ? (
-                  products.map((item) => (
-                    <tr key={item.id}>
-                      <td>{item.category}</td>
-                      <td>{item.title}</td>
-                      <td className="text-end">{item.origin_price}</td>
-                      <td className="text-end">{item.price}</td>
-                      <td>
-                        {item.is_enabled ? (
-                          <span className="text-success">啟用</span>
-                        ) : (
-                          <span className="text-gray">未啟用</span>
-                        )}
-                      </td>
-                      <td>
-                        <div className="btn-group">
-                          <button
-                            type="button"
-                            className="btn btn-outline-primary btn-sm"
-                            onClick={() => handleUpdateProductClick(item)}
-                          >
-                            編輯
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-outline-danger btn-sm"
-                            onClick={() => handleDeleteProductClick(item)}
-                          >
-                            刪除
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                  <>
+                    {products.map((item) => (
+                      <tr key={item.id}>
+                        <td>{item.category}</td>
+                        <td>{item.title}</td>
+                        <td className="text-end">{item.origin_price}</td>
+                        <td className="text-end">{item.price}</td>
+                        <td>
+                          {item.is_enabled ? (
+                            <span className="text-success">啟用</span>
+                          ) : (
+                            <span className="text-gray">未啟用</span>
+                          )}
+                        </td>
+                        <td>
+                          <div className="btn-group">
+                            <button
+                              type="button"
+                              className="btn btn-outline-primary btn-sm"
+                              onClick={() => handleUpdateProductClick(item)}
+                            >
+                              編輯
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-outline-danger btn-sm"
+                              onClick={() => handleDeleteProductClick(item)}
+                            >
+                              刪除
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    <Pagination
+                      currentPage={currentPage}
+                      totalPages={totalPages}
+                      onPageChange={setCurrentPage}
+                    />
+                  </>
                 ) : (
                   <tr>
                     <td colSpan="6">尚無產品資料</td>
