@@ -269,11 +269,6 @@ function App() {
                         </td>
                       </tr>
                     ))}
-                    <Pagination
-                      currentPage={currentPage}
-                      totalPages={totalPages}
-                      onPageChange={setCurrentPage}
-                    />
                   </>
                 ) : (
                   <tr>
@@ -282,6 +277,13 @@ function App() {
                 )}
               </tbody>
             </table>
+            {!isProductLoading && products.length > 0 && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={(page) => setCurrentPage(page)}
+              />
+            )}
           </div>
         </div>
       ) : (
